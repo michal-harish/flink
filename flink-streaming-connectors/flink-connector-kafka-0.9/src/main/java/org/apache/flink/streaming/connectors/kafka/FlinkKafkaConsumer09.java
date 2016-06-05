@@ -83,6 +83,9 @@ public class FlinkKafkaConsumer09<T> extends FlinkKafkaConsumerBase<T> {
 	/** User-supplied properties for Kafka **/
 	private final Properties properties;
 
+	/** Kafka topics passed to the constructor for subscription **/
+	private final List<String> topics;
+
 	/** From Kafka's Javadoc: The time, in milliseconds, spent waiting in poll if data is not
 	 * available. If 0, returns immediately with any records that are available now */
 	private final long pollTimeout;
@@ -151,7 +154,7 @@ public class FlinkKafkaConsumer09<T> extends FlinkKafkaConsumerBase<T> {
 	public FlinkKafkaConsumer09(List<String> topics, KeyedDeserializationSchema<T> deserializer, Properties props) {
 		super(deserializer);
 
-		checkNotNull(topics, "topics");
+		this.topics = checkNotNull(topics, "topics");
 		this.properties = checkNotNull(props, "props");
 		setDeserializer(this.properties);
 
@@ -166,7 +169,10 @@ public class FlinkKafkaConsumer09<T> extends FlinkKafkaConsumerBase<T> {
 		catch (Exception e) {
 			throw new IllegalArgumentException("Cannot parse poll timeout for '" + KEY_POLL_TIMEOUT + '\'', e);
 		}
+	}
 
+	@Override
+	protected List<KafkaTopicPartition> getAllSubscribedPartitions() {
 		// read the partitions that belong to the listed topics
 		final List<KafkaTopicPartition> partitions = new ArrayList<>();
 
@@ -193,7 +199,7 @@ public class FlinkKafkaConsumer09<T> extends FlinkKafkaConsumerBase<T> {
 		}
 
 		// register these partitions
-		setSubscribedPartitions(partitions);
+		return partitions;
 	}
 
 	@Override

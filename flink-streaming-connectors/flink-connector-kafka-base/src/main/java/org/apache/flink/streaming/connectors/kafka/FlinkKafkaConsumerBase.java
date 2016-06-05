@@ -21,6 +21,7 @@ import org.apache.commons.collections.map.LinkedMap;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.state.CheckpointListener;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedAsynchronously;
 import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
@@ -71,13 +72,13 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	// ------------------------------------------------------------------------
 	//  configuration state, set on the client relevant for all subtasks
 	// ------------------------------------------------------------------------
-	
+
 	/** The schema to convert between Kafka's byte messages, and Flink's objects */
 	protected final KeyedDeserializationSchema<T> deserializer;
 
 	/** The set of topic partitions that the source will read */
 	protected List<KafkaTopicPartition> allSubscribedPartitions;
-	
+
 	/** Optional timestamp extractor / watermark generator that will be run per Kafka partition,
 	 * to exploit per-partition timestamp characteristics.
 	 * The assigner is kept in serialized form, to deserialize it into multiple copies */
@@ -114,17 +115,6 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	 */
 	public FlinkKafkaConsumerBase(KeyedDeserializationSchema<T> deserializer) {
 		this.deserializer = checkNotNull(deserializer, "valueDeserializer");
-	}
-
-	/**
-	 * This method must be called from the subclasses, to set the list of all subscribed partitions
-	 * that this consumer will fetch from (across all subtasks).
-	 * 
-	 * @param allSubscribedPartitions The list of all partitions that all subtasks together should fetch from.
-	 */
-	protected void setSubscribedPartitions(List<KafkaTopicPartition> allSubscribedPartitions) {
-		checkNotNull(allSubscribedPartitions);
-		this.allSubscribedPartitions = Collections.unmodifiableList(allSubscribedPartitions);
 	}
 
 	// ------------------------------------------------------------------------
@@ -198,6 +188,26 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 			throw new IllegalArgumentException("The given assigner is not serializable", e);
 		}
 	}
+
+	@Override
+	public void open(Configuration parameters) throws Exception {
+		super.open(parameters);
+
+		List<KafkaTopicPartition> partitionInfos = checkNotNull(getAllSubscribedPartitions());
+
+		if (LOG.isInfoEnabled()) {
+			logPartitionInfo(LOG, partitionInfos);
+		}
+
+		this.allSubscribedPartitions = Collections.unmodifiableList(partitionInfos);
+	}
+
+	/**
+	 * Partition discovery will be invoked by the open method from the task runtime environment. Each implementing
+	 * class for specific kafka version is responsible for discovering all partitions for each topics it subscribes to.
+	 * @return a non-empty list of KafkaTopicPartition descriptors
+	 */
+	protected abstract List<KafkaTopicPartition> getAllSubscribedPartitions() throws RuntimeException;
 
 	// ------------------------------------------------------------------------
 	//  Work methods

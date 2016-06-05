@@ -215,6 +215,11 @@ public class FlinkKafkaConsumerBaseTest {
 		}
 
 		@Override
+		protected List<KafkaTopicPartition> getAllSubscribedPartitions() {
+			return null;
+		}
+
+		@Override
 		protected AbstractFetcher<T, ?> createFetcher(SourceContext<T> sourceContext, List<KafkaTopicPartition> thisSubtaskPartitions, SerializedValue<AssignerWithPeriodicWatermarks<T>> watermarksPeriodic, SerializedValue<AssignerWithPunctuatedWatermarks<T>> watermarksPunctuated, StreamingRuntimeContext runtimeContext) throws Exception {
 			return null;
 		}

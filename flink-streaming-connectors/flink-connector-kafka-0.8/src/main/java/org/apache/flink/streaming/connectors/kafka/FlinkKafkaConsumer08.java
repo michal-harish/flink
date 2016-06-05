@@ -109,6 +109,9 @@ public class FlinkKafkaConsumer08<T> extends FlinkKafkaConsumerBase<T> {
 	/** The properties to parametrize the Kafka consumer and ZooKeeper client */ 
 	private final Properties kafkaProperties;
 
+	/** Kafka topics passed to the constructor for subscription **/
+	private final List<String> topics;
+
 	/** The behavior when encountering an invalid offset (see {@link OffsetRequest}) */
 	private final long invalidOffsetBehavior;
 
@@ -179,7 +182,7 @@ public class FlinkKafkaConsumer08<T> extends FlinkKafkaConsumerBase<T> {
 	public FlinkKafkaConsumer08(List<String> topics, KeyedDeserializationSchema<T> deserializer, Properties props) {
 		super(deserializer);
 
-		checkNotNull(topics, "topics");
+		this.topics = checkNotNull(topics, "topics");
 		this.kafkaProperties = checkNotNull(props, "props");
 
 		// validate the zookeeper properties
@@ -187,22 +190,21 @@ public class FlinkKafkaConsumer08<T> extends FlinkKafkaConsumerBase<T> {
 
 		this.invalidOffsetBehavior = getInvalidOffsetBehavior(props);
 		this.autoCommitInterval = PropertiesUtil.getLong(props, "auto.commit.interval.ms", 60000);
+	}
 
+	@Override
+	protected List<KafkaTopicPartition> getAllSubscribedPartitions() {
 		// Connect to a broker to get the partitions for all topics
-		List<KafkaTopicPartition> partitionInfos = 
-				KafkaTopicPartition.dropLeaderData(getPartitionsForTopic(topics, props));
+		List<KafkaTopicPartition> partitionInfos
+			= KafkaTopicPartition.dropLeaderData(getPartitionsForTopic(topics, kafkaProperties));
 
 		if (partitionInfos.size() == 0) {
 			throw new RuntimeException(
-					"Unable to retrieve any partitions for the requested topics " + topics + 
-							". Please check previous log entries");
+				"Unable to retrieve any partitions for the requested topics " + topics +
+					". Please check previous log entries");
 		}
 
-		if (LOG.isInfoEnabled()) {
-			logPartitionInfo(LOG, partitionInfos);
-		}
-
-		setSubscribedPartitions(partitionInfos);
+		return partitionInfos;
 	}
 
 	@Override
